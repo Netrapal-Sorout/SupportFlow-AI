@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/* =========================================================
+   SupportFlow AI Design System
+   ========================================================= */
+
+@theme {
+  /* Brand */
+  --color-primary-50: #eaf4ff;
+  --color-primary-100: #d7ebff;
+  --color-primary-200: #b8dcff;
+  --color-primary-300: #7fc1ff;
+  --color-primary-400: #3d9ff5;
+  --color-primary-500: #0878d9;
+  --color-primary-600: #066bc2;
+  --color-primary-700: #0759a0;
+  --color-primary-800: #084b83;
+  --color-primary-900: #0a3e6b;
+
+  /* Text */
+  --color-text-primary: #17233f;
+  --color-text-secondary: #475467;
+  --color-text-muted: #667085;
+  --color-text-subtle: #98a2b3;
+
+  /* Backgrounds */
+  --color-surface: #ffffff;
+  --color-background: #f8fafc;
+  --color-surface-soft: #f1f5f9;
+
+  /* Borders */
+  --color-border: #e4eaf2;
+  --color-border-strong: #d5deea;
+
+  /* Status */
+  --color-success: #45b83c;
+  --color-success-soft: #eaf8e8;
+
+  --color-info: #0bb3b0;
+  --color-info-soft: #e7f9f8;
+
+  --color-warning: #ff8a00;
+  --color-warning-soft: #fff3e5;
+
+  --color-danger: #ef4444;
+  --color-danger-soft: #fef0f0;
+
+  /* AI */
+  --color-ai: #6f5bd3;
+  --color-ai-soft: #f0edff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+html {
+  background: #f8fafc;
+}
+
+body {
+  margin: 0;
+  background: #f8fafc;
+  color: #17233f;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: #d7ebff;
+  color: #17233f;
+}
