@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  SUPPORT_AGENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  BILLING
+  TECHNICAL
+  ACCOUNT
+  SHIPPING
+  GENERAL
+}
+
+enum MessageSenderType {
+  CUSTOMER
+  AGENT
+  AI
+  SYSTEM
+}
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         UserRole   @default(SUPPORT_AGENT)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  assignedTickets Ticket[]        @relation("AssignedTickets")
+  messages        TicketMessage[]
+
+  @@map("users")
+}
+
+model Customer {
+  id        String         @id @default(uuid())
+  name      String
+  email     String         @unique
+  company   String?
+  status    CustomerStatus @default(ACTIVE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  tickets Ticket[]
+
+  @@map("customers")
+}
+
+model Ticket {
+  id           String         @id @default(uuid())
+  ticketNumber String         @unique
+  subject      String
+  status       TicketStatus   @default(OPEN)
+  priority     TicketPriority @default(MEDIUM)
+  category     TicketCategory @default(GENERAL)
+  lastMessage  String?
+  aiConfidence Float?
+
+  customerId     String
+  assignedUserId String?
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  assignedUser User? @relation("AssignedTickets", fields: [assignedUserId], references: [id])
+
+  messages TicketMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([assignedUserId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         String            @id @default(uuid())
+  content    String
+  senderType MessageSenderType
+
+  ticketId String
+  userId   String?
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  user User? @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([userId])
+  @@map("ticket_messages")
+}

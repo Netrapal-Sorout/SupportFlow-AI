@@ -2,6 +2,8 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 
+import ticketRoutes from './routes/ticket.routes.js';
+
 const app = express();
 
 app.use(helmet());
@@ -28,5 +30,7 @@ app.get('/api/health', (_req, res) => {
     message: 'SupportFlow AI API is running',
   });
 });
+
+app.use('/api/tickets', ticketRoutes);
 
 export default app;
