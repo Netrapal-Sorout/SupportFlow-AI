@@ -76,3 +76,28 @@ export async function createTicket(data: CreateTicketInput) {
     return ticket;
   });
 }
+
+export async function assignTicket(
+  ticketId: string,
+  assignedUserId: string,
+) {
+  return prisma.ticket.update({
+    where: {
+      id: ticketId,
+    },
+
+    data: {
+      assignedUserId,
+    },
+
+    include: {
+      customer: true,
+      assignedUser: true,
+      messages: {
+        orderBy: {
+          createdAt: 'asc',
+        },
+      },
+    },
+  });
+}

@@ -1,26 +1,48 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { Navigate, createBrowserRouter } from 'react-router-dom';
 
 import { AppShell } from '../components/layout/app-shell';
+
+import LoginPage from '../features/auth/login-page';
+import { ProtectedRoute } from '../features/auth/protected-route';
+
 import { DashboardPage } from '../features/dashboard-page';
+
 import { CreateTicketPage } from '../features/tickets/create-ticket-page';
 import { TicketDetailsPage } from '../features/tickets/ticket-details-page';
 import { TicketsPage } from '../features/tickets/tickets-page';
+
 import { CustomersPage } from '../features/customers/customers-page';
 import { CustomerDetailsPage } from '../features/customers/customer-details-page';
 import { CreateCustomerPage } from '../features/customers/create-customer-page';
+
 import { KnowledgeBasePage } from '../features/knowledge-base/knowledge-base-page';
 import { ArticleDetailsPage } from '../features/knowledge-base/article-details-page';
 import { CreateArticlePage } from '../features/knowledge-base/create-article-page';
+
 import { AIAssistantPage } from '../features/ai-assistant/ai-assistant-page';
 import { AnalyticsPage } from '../features/analytics/analytics-page';
 import { SettingsPage } from '../features/settings/settings-page';
 
 export const router = createBrowserRouter([
   {
-    element: <AppShell />,
+    path: '/',
+    element: <Navigate to="/login" replace />,
+  },
+
+  {
+    path: '/login',
+    element: <LoginPage />,
+  },
+
+  {
+    element: (
+      <ProtectedRoute>
+        <AppShell />
+      </ProtectedRoute>
+    ),
     children: [
       {
-        path: '/',
+        path: '/dashboard',
         element: <DashboardPage />,
       },
       {

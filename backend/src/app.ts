@@ -2,7 +2,9 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 
+import authRoutes from './routes/auth.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 const app = express();
 
@@ -31,6 +33,10 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+app.use('/api/auth', authRoutes);
+
 app.use('/api/tickets', ticketRoutes);
+
+app.use('/api/users', userRoutes);
 
 export default app;
