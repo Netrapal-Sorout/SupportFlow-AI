@@ -10,39 +10,22 @@ import {
   authenticateClient,
 } from '../middleware/client-auth.middleware.js';
 
+import {
+  clientTicketUpload,
+} from '../middleware/client-ticket-upload.middleware.js';
+
 const router = Router();
 
-/*
- * All client ticket routes require
- * customer authentication.
- */
 router.use(authenticateClient);
 
-/*
- * GET /api/client-tickets
- * Get tickets belonging to the logged-in customer.
- *
- * Optional:
- * /api/client-tickets?search=payment
- */
-router.get(
-  '/',
-  getClientTicketsController,
-);
+router.get('/', getClientTicketsController);
 
-/*
- * POST /api/client-tickets
- * Create a new ticket for the logged-in customer.
- */
 router.post(
   '/',
+  clientTicketUpload.array('attachments', 5),
   createClientTicketController,
 );
 
-/*
- * GET /api/client-tickets/:ticketId
- * Get a single ticket belonging to the logged-in customer.
- */
 router.get(
   '/:ticketId',
   getClientTicketByIdController,

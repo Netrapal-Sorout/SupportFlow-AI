@@ -37,6 +37,7 @@
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -44,6 +45,7 @@
     "@types/express": "^5.0.6",
     "@types/helmet": "^0.0.48",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.3.0",
     "@types/node": "^26.6.2",
     "prisma": "6.19.3",
     "tsx": "^4.23.13",
