@@ -1,0 +1,4 @@
+import { ArrowLeft, Ticket } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { CreateTicketForm } from './create-ticket-form';
+export function CreateTicketPage(){const navigate=useNavigate();return <div className="sf-page ticket-create-page"><div className="sf-page__inner"><Link className="sf-back" to="/tickets"><ArrowLeft size={15}/>Back to Tickets</Link><div className="sf-stack"><header className="sf-card sf-page-header" style={{padding:'18px 20px'}}><div className="sf-header-title"><div className="sf-icon-box"><Ticket size={18}/></div><div><h1 className="sf-heading">Create Ticket</h1><p className="sf-subheading">Create a real support request and persist it in PostgreSQL.</p></div></div></header><CreateTicketForm onCancel={()=>navigate('/tickets')} onSuccess={()=>navigate('/tickets')}/></div></div></div>}

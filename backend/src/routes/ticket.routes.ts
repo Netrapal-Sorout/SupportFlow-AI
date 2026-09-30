@@ -1,0 +1,13 @@
+import { Router } from 'express';
+import { assignTicketController, createTicketController, getTicketByIdController, getTicketsController, addTicketMessageController, updateTicketController } from '../controllers/ticket.controller.js';
+import { authenticate } from '../middleware/auth.middleware.js';
+import { authorizeRoles } from '../middleware/role.middleware.js';
+const router = Router();
+router.use(authenticate);
+router.get('/', getTicketsController);
+router.post('/', createTicketController);
+router.get('/:id', getTicketByIdController);
+router.patch('/:id', updateTicketController);
+router.post('/:id/messages', addTicketMessageController);
+router.patch('/:id/assignment', authorizeRoles('ADMIN'), assignTicketController);
+export default router;

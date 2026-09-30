@@ -1,0 +1,20 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2, Save, UserRound, X } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { createTicket } from './ticket.api';
+
+const schema=z.object({customerName:z.string().trim().min(2),customerEmail:z.string().trim().email(),company:z.string().trim().optional(),subject:z.string().trim().min(3),category:z.enum(['GENERAL','BILLING','TECHNICAL','ACCOUNT','SHIPPING']),priority:z.enum(['LOW','MEDIUM','HIGH','URGENT']),description:z.string().trim().min(10)});
+type FormValues=z.infer<typeof schema>;
+export function CreateTicketForm({onCancel,onSuccess}:{onCancel:()=>void;onSuccess:()=>void}){
+ const {register,handleSubmit,formState:{errors,isSubmitting}}=useForm<FormValues>({resolver:zodResolver(schema),defaultValues:{category:'GENERAL',priority:'MEDIUM'}}); const [error,setError]=useState('');
+ async function submit(data:FormValues){try{setError('');await createTicket({customer:{name:data.customerName,email:data.customerEmail,company:data.company},subject:data.subject,message:data.description,category:data.category,priority:data.priority});onSuccess()}catch(e){setError(e instanceof Error?e.message:'Unable to create ticket')}}
+ return <form className="sf-stack ticket-create-form" style={{maxWidth:920}} onSubmit={handleSubmit(submit)}>
+  {error&&<div className="sf-alert">{error}</div>}
+  <section className="sf-card"><div className="sf-card__header"><div className="sf-header-title"><div className="sf-icon-box"><UserRound size={17}/></div><div><div className="sf-section-title">Customer Information</div><p className="sf-subheading">The customer record will be created or updated automatically.</p></div></div></div><div className="sf-card__body sf-form-grid"><Field label="Customer Name" error={errors.customerName?.message}><input className="sf-input" {...register('customerName')} placeholder="Customer name"/></Field><Field label="Customer Email" error={errors.customerEmail?.message}><input className="sf-input" type="email" {...register('customerEmail')} placeholder="customer@example.com"/></Field><Field label="Company"><input className="sf-input" {...register('company')} placeholder="Company (optional)"/></Field></div></section>
+  <section className="sf-card"><div className="sf-card__header"><div className="sf-section-title">Ticket Information</div><p className="sf-subheading">Capture the issue so agents and AI can work from the same source of truth.</p></div><div className="sf-card__body sf-stack"><Field label="Subject" error={errors.subject?.message}><input className="sf-input" {...register('subject')} placeholder="What does the customer need help with?"/></Field><div className="sf-form-grid"><Field label="Category"><select className="sf-select" {...register('category')}><option value="GENERAL">General</option><option value="BILLING">Billing</option><option value="TECHNICAL">Technical</option><option value="ACCOUNT">Account</option><option value="SHIPPING">Shipping</option></select></Field><Field label="Priority"><select className="sf-select" {...register('priority')}><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="URGENT">Urgent</option></select></Field></div><Field label="Description" error={errors.description?.message}><textarea className="sf-textarea" {...register('description')} placeholder="Describe the customer issue in detail…"/></Field></div></section>
+  <div className="sf-form-actions"><button type="button" className="sf-button" onClick={onCancel} disabled={isSubmitting}><X size={15}/>Cancel</button><button className="sf-button sf-button--primary" disabled={isSubmitting}>{isSubmitting?<><Loader2 size={15} className="animate-spin"/>Creating…</>:<><Save size={15}/>Create Ticket</>}</button></div>
+ </form>
+}
+function Field({label,error,children}:{label:string;error?:string;children:React.ReactNode}){return <div><label className="sf-label">{label}</label>{children}{error&&<div style={{fontSize:11,color:'#d92d20',marginTop:6}}>{error}</div>}</div>}

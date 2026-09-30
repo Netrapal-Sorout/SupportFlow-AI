@@ -1,0 +1,9 @@
+import { apiRequest } from '../../services/api-client';
+
+export interface TicketMessage { id: string; content: string; senderType: 'CUSTOMER'|'AGENT'|'AI'|'SYSTEM'; createdAt: string; user?: { id: string; name: string } | null; }
+export interface TicketRecord { id: string; ticketNumber: string; subject: string; status: 'OPEN'|'PENDING'|'RESOLVED'|'CLOSED'; priority: 'LOW'|'MEDIUM'|'HIGH'|'URGENT'; category: 'BILLING'|'TECHNICAL'|'ACCOUNT'|'SHIPPING'|'GENERAL'; lastMessage: string|null; aiConfidence: number|null; createdAt: string; updatedAt: string; customer: { id:string; name:string; email:string; company?:string|null }; assignedUser: { id:string; name:string; email:string; role:string }|null; messages: TicketMessage[]; }
+export async function getTickets(params: {search?:string;status?:string;priority?:string}={}) { const q=new URLSearchParams(); Object.entries(params).forEach(([k,v])=>v&&q.set(k,v)); const r=await apiRequest<{success:boolean;data:TicketRecord[]}>(`/tickets?${q}`); return r.data; }
+export async function getTicket(id:string) { return (await apiRequest<{success:boolean;data:TicketRecord}>(`/tickets/${id}`)).data; }
+export async function createTicket(input:{customer:{name:string;email:string;company?:string};subject:string;message:string;priority?:string;category?:string}) { return (await apiRequest<{success:boolean;data:TicketRecord}>('/tickets',{method:'POST',body:JSON.stringify(input)})).data; }
+export async function updateTicket(id:string,input:Record<string,string>) { return (await apiRequest<{success:boolean;data:TicketRecord}>(`/tickets/${id}`,{method:'PATCH',body:JSON.stringify(input)})).data; }
+export async function addTicketMessage(id:string,content:string) { return (await apiRequest<{success:boolean;data:TicketMessage}>(`/tickets/${id}/messages`,{method:'POST',body:JSON.stringify({content})})).data; }

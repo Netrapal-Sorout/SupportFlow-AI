@@ -1,0 +1,7 @@
+import { apiRequest } from '../../services/api-client';
+export interface ArticleRecord { id:string; title:string; slug:string; category:'BILLING'|'ACCOUNT'|'SHIPPING'|'TECHNICAL'|'GENERAL'; status:'PUBLISHED'|'DRAFT'; summary:string; content:string; views:number; helpfulCount:number; createdAt:string; updatedAt:string; author:{id:string;name:string}|null; }
+export async function getArticles(search='',category='ALL') { const q=new URLSearchParams(); if(search)q.set('search',search); if(category!=='ALL')q.set('category',category); return (await apiRequest<{success:boolean;data:ArticleRecord[]}>(`/knowledge-base?${q}`)).data; }
+export async function getArticle(id:string) { return (await apiRequest<{success:boolean;data:ArticleRecord}>(`/knowledge-base/${id}`)).data; }
+export async function createArticle(input:Omit<ArticleRecord,'id'|'views'|'helpfulCount'|'createdAt'|'updatedAt'|'author'>) { return (await apiRequest<{success:boolean;data:ArticleRecord}>('/knowledge-base',{method:'POST',body:JSON.stringify(input)})).data; }
+export async function updateArticle(id:string,input:Omit<ArticleRecord,'id'|'views'|'helpfulCount'|'createdAt'|'updatedAt'|'author'>) { return (await apiRequest<{success:boolean;data:ArticleRecord}>(`/knowledge-base/${id}`,{method:'PATCH',body:JSON.stringify(input)})).data; }
+export async function deleteArticle(id:string) { await apiRequest<void>(`/knowledge-base/${id}`,{method:'DELETE'}); }

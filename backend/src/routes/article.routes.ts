@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { authenticate } from '../middleware/auth.middleware.js';
+import { createArticleController, deleteArticleController, getArticleController, listArticlesController, updateArticleController } from '../controllers/article.controller.js';
+const router = Router();
+router.use(authenticate);
+router.get('/', listArticlesController);
+router.post('/', createArticleController);
+router.get('/:id', getArticleController);
+router.patch('/:id', updateArticleController);
+router.delete('/:id', deleteArticleController);
+export default router;

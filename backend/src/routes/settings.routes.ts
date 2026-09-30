@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { authenticate } from '../middleware/auth.middleware.js';
+import { getSettingsController, updatePreferencesController, updateProfileController, updateWorkspaceController } from '../controllers/settings.controller.js';
+const router = Router();
+router.use(authenticate);
+router.get('/', getSettingsController);
+router.patch('/profile', updateProfileController);
+router.patch('/workspace', updateWorkspaceController);
+router.patch('/preferences', updatePreferencesController);
+export default router;

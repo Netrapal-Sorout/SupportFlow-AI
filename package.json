@@ -1,0 +1,15 @@
+{
+  "name": "supportflow-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SupportFlow AI - customer support and operations platform",
+  "scripts": {
+    "install:all": "npm --prefix backend ci && npm --prefix frontend ci",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "typecheck:backend": "npm --prefix backend run typecheck",
+    "typecheck:frontend": "npm --prefix frontend run typecheck"
+  }
+}
