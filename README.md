@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SupportFlow AI
 
 A production-oriented customer support operations platform built with React, TypeScript, Node.js, Express, PostgreSQL and Prisma.
@@ -24,3 +25,4 @@ A production-oriented customer support operations platform built with React, Typ
 ## Architecture
 
 Frontend requests go through `frontend/src/services/api-client.ts` to the Express API. The backend validates input with Zod, executes business logic through services/repositories, and persists data with Prisma/PostgreSQL. Secrets stay on the backend.
+=======
