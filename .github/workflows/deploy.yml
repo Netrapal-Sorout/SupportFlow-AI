@@ -14,19 +14,73 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # 3. Install backend dependencies
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      # 4. Generate Prisma client
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      # 5. Build TypeScript backend
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      # 6. Verify production files
+      - name: Verify build
+        working-directory: backend
+        run: |
+          echo "Checking dist directory..."
+          ls -la dist
+          test -f dist/server.js
+          echo "✅ dist/server.js exists"
+
+      # 7. Remove node_modules before packaging
+      - name: Remove node_modules
+        run: |
+          rm -rf backend/node_modules
+          echo "✅ node_modules removed"
+
+      # 8. Create deployment ZIP
+      - name: Create deployment package
+        run: |
+          cd backend
+          zip -r ../supportflow-backend.zip . \
+            -x "node_modules/*" \
+            -x ".env" \
+            -x ".git/*"
+
+      # 9. Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::375886898285:role/GitHubActions-SupportFlowAI
           aws-region: eu-north-1
 
-      - name: Deploy backend to Elastic Beanstalk
-        uses: aws-actions/aws-elasticbeanstalk-deploy@v1.0.8
+      # 10. Deploy to Elastic Beanstalk
+      - name: Deploy to Elastic Beanstalk
+        uses: aws-actions/aws-elasticbeanstalk-deploy@v1
         with:
           aws-region: eu-north-1
           application-name: supportflow-ai
           environment-name: Supportflow-ai-env
-          source-directory: backend
+          deployment-package-path: supportflow-backend.zip
+          version-label: supportflow-${{ github.sha }}
+          wait-for-deployment: true
+          wait-for-environment-recovery: true
+          deployment-timeout: 1200
