@@ -14,13 +14,35 @@ let server: Server | null = null;
 
 async function startServer(): Promise<void> {
   try {
-    await connectDatabase();
-
+    /*
+     * Start the HTTP server first.
+     *
+     * This is important for AWS Elastic Beanstalk because the
+     * load balancer needs the application to start listening.
+     */
     server = app.listen(PORT, () => {
       console.log(
         `🚀 SupportFlow AI API running on http://localhost:${PORT}`
       );
+      console.log(`📡 Server listening on port ${PORT}`);
     });
+
+    /*
+     * Connect to PostgreSQL after the HTTP server has started.
+     *
+     * If RDS is temporarily unreachable, do NOT terminate the
+     * Node.js process. Log the error so the EB instance stays alive.
+     */
+    try {
+      await connectDatabase();
+
+      console.log('✅ PostgreSQL database connected successfully');
+    } catch (error) {
+      console.error('❌ PostgreSQL database connection failed:', error);
+      console.error(
+        '⚠️ Server is still running, but database-dependent APIs may fail.'
+      );
+    }
   } catch (error) {
     console.error('❌ Failed to start server:', error);
 
@@ -39,9 +61,13 @@ const shutdown = async (signal: string): Promise<void> => {
   }
 
   server.close(async () => {
-    await disconnectDatabase();
+    try {
+      await disconnectDatabase();
 
-    console.log('✅ Server shut down successfully');
+      console.log('✅ Server shut down successfully');
+    } catch (error) {
+      console.error('❌ Error while disconnecting database:', error);
+    }
 
     process.exit(0);
   });
