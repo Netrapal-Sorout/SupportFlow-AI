@@ -4,3 +4,8 @@ dist/
 .env.*.local
 coverage/
 *.log
+
+# Local Prisma migration backups
+prisma/migrations_old/
+prisma/migrations_backup/
+prisma/production-baseline.sql
