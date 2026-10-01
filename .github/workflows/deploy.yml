@@ -24,7 +24,7 @@ jobs:
           aws-region: eu-north-1
 
       - name: Deploy backend to Elastic Beanstalk
-        uses: aws-actions/aws-elasticbeanstalk-deploy@v1
+        uses: aws-actions/aws-elasticbeanstalk-deploy@v1.0.8
         with:
           aws-region: eu-north-1
           application-name: supportflow-ai
