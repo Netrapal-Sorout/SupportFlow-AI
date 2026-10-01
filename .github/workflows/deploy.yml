@@ -14,11 +14,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -26,53 +24,59 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      # 3. Install backend dependencies
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
 
-      # 4. Generate Prisma client
       - name: Generate Prisma client
         working-directory: backend
         run: npx prisma generate
 
-      # 5. Build TypeScript backend
       - name: Build backend
         working-directory: backend
         run: npm run build
 
-      # 6. Verify production files
-      - name: Verify build
+      - name: Verify build output
         working-directory: backend
         run: |
-          echo "Checking dist directory..."
+          echo "===== DIST CONTENTS ====="
           ls -la dist
+
+          echo "===== CHECK SERVER ====="
           test -f dist/server.js
+
           echo "✅ dist/server.js exists"
 
-      # 7. Remove node_modules before packaging
       - name: Remove node_modules
         run: |
           rm -rf backend/node_modules
-          echo "✅ node_modules removed"
+          echo "✅ backend/node_modules removed"
 
-      # 8. Create deployment ZIP
-      - name: Create deployment package
+      - name: Create deployment ZIP
         run: |
           cd backend
+
           zip -r ../supportflow-backend.zip . \
             -x "node_modules/*" \
             -x ".env" \
             -x ".git/*"
 
-      # 9. Configure AWS credentials
+          cd ..
+
+          echo "===== ZIP CONTENTS ====="
+          unzip -l supportflow-backend.zip | grep "dist/server.js"
+
+          echo "===== VERIFY ZIP ====="
+          unzip -l supportflow-backend.zip | grep -q "dist/server.js"
+
+          echo "✅ dist/server.js is inside deployment ZIP"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::375886898285:role/GitHubActions-SupportFlowAI
           aws-region: eu-north-1
 
-      # 10. Deploy to Elastic Beanstalk
       - name: Deploy to Elastic Beanstalk
         uses: aws-actions/aws-elasticbeanstalk-deploy@v1
         with:
