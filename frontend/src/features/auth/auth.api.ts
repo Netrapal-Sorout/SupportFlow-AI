@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5000/api';
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
 
 // =========================================================
 // TYPES
@@ -51,7 +51,7 @@ export async function login(
   data: LoginInput,
 ): Promise<AuthResult> {
   const response = await fetch(
-    `${API_URL}/auth/login`,
+    `${import.meta.env.VITE_API_URL}/auth/login`,
     {
       method: 'POST',
 
@@ -101,7 +101,7 @@ export async function register(
   data: RegisterInput,
 ): Promise<AuthResult> {
   const response = await fetch(
-    `${API_URL}/auth/register`,
+    `${import.meta.env.VITE_API_URL}/auth/register`,
     {
       method: 'POST',
 
@@ -151,7 +151,7 @@ export async function getCurrentUser(
   token: string,
 ): Promise<AuthUser> {
   const response = await fetch(
-    `${API_URL}/auth/me`,
+    `${import.meta.env.VITE_API_URL}/auth/me`,
     {
       method: 'GET',
 

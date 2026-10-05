@@ -1,6 +1,6 @@
 import { getAccessToken, removeAccessToken } from '../features/auth/auth.storage';
 
-export const API_BASE_URL = 'http://localhost:5000/api';
+export const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getAccessToken();
