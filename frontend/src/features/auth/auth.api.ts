@@ -1,4 +1,10 @@
-const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+const configuredApiUrl = import.meta.env.VITE_API_URL;
+
+if (!configuredApiUrl) {
+  throw new Error('VITE_API_URL is not configured.');
+}
+
+const API_BASE_URL = `${configuredApiUrl.replace(/\/+$/, '')}/api`;
 
 // =========================================================
 // TYPES
@@ -51,7 +57,7 @@ export async function login(
   data: LoginInput,
 ): Promise<AuthResult> {
   const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/auth/login`,
+    `${API_BASE_URL}/auth/login`,
     {
       method: 'POST',
 
@@ -101,7 +107,7 @@ export async function register(
   data: RegisterInput,
 ): Promise<AuthResult> {
   const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/auth/register`,
+    `${API_BASE_URL}/auth/register`,
     {
       method: 'POST',
 
@@ -151,7 +157,7 @@ export async function getCurrentUser(
   token: string,
 ): Promise<AuthUser> {
   const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/auth/me`,
+    `${API_BASE_URL}/auth/me`,
     {
       method: 'GET',
 
