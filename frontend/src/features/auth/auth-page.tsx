@@ -9,7 +9,13 @@ import {
   User,
   Zap,
 } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+
+import {
+  FormEvent,
+  useRef,
+  useState,
+} from 'react';
+
 import { useNavigate } from 'react-router-dom';
 
 import { login, register } from './auth.api';
@@ -20,19 +26,39 @@ type AuthMode = 'login' | 'register';
 export default function AuthPage() {
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] =
+    useState<AuthMode>('login');
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [name, setName] =
+    useState('');
 
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] =
+    useState('');
 
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [password, setPassword] =
+    useState('');
 
-  function switchMode(nextMode: AuthMode) {
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [error, setError] =
+    useState('');
+
+  const [success, setSuccess] =
+    useState('');
+
+  const [loading, setLoading] =
+    useState(false);
+
+  // Prevent duplicate login/register requests.
+  // useRef is used because it updates immediately
+  // without waiting for a React re-render.
+  const submittingRef =
+    useRef(false);
+
+  function switchMode(
+    nextMode: AuthMode,
+  ) {
     setMode(nextMode);
     setError('');
     setSuccess('');
@@ -44,6 +70,14 @@ export default function AuthPage() {
   ) {
     event.preventDefault();
 
+    // Prevent double-clicks and duplicate
+    // submit events from sending two API requests.
+    if (submittingRef.current) {
+      return;
+    }
+
+    submittingRef.current = true;
+
     setError('');
     setSuccess('');
     setLoading(true);
@@ -51,14 +85,16 @@ export default function AuthPage() {
     try {
       if (mode === 'register') {
         if (name.trim().length < 2) {
-          setError('Name must be at least 2 characters.');
-          setLoading(false);
+          setError(
+            'Name must be at least 2 characters.',
+          );
           return;
         }
 
         if (password.length < 8) {
-          setError('Password must be at least 8 characters.');
-          setLoading(false);
+          setError(
+            'Password must be at least 8 characters.',
+          );
           return;
         }
 
@@ -84,7 +120,9 @@ export default function AuthPage() {
         password,
       });
 
-      setAccessToken(result.data.token);
+      setAccessToken(
+        result.data.token,
+      );
 
       navigate('/admin', {
         replace: true,
@@ -98,6 +136,7 @@ export default function AuthPage() {
             : 'Unable to sign in.',
       );
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
@@ -118,7 +157,6 @@ export default function AuthPage() {
 
               {/* Brand */}
               <div className="flex items-center gap-3">
-
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/15">
                   <Zap className="h-5 w-5" />
                 </div>
@@ -132,12 +170,10 @@ export default function AuthPage() {
                     AI-powered support operations
                   </div>
                 </div>
-
               </div>
 
               {/* Product message */}
               <div className="mt-28 max-w-xl">
-
                 <div className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-300">
                   Intelligent support
                 </div>
@@ -153,9 +189,7 @@ export default function AuthPage() {
                   analytics and AI assistance into one
                   powerful support workspace.
                 </p>
-
               </div>
-
             </div>
 
             {/* Product features */}
@@ -210,17 +244,14 @@ export default function AuthPage() {
               </div>
 
             </div>
-
           </section>
 
           {/* RIGHT — AUTH PANEL */}
           <section className="flex min-h-[700px] items-center justify-center bg-white p-7 sm:p-10 lg:p-12 xl:p-16">
-
             <div className="w-full max-w-[430px]">
 
               {/* Mobile brand */}
               <div className="mb-10 flex items-center gap-3 lg:hidden">
-
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#EAF3FF] text-[#0878D9]">
                   <Zap className="h-5 w-5" />
                 </div>
@@ -234,12 +265,10 @@ export default function AuthPage() {
                     AI-powered support operations
                   </div>
                 </div>
-
               </div>
 
               {/* Heading */}
               <div>
-
                 <h2 className="text-3xl font-bold tracking-tight text-[#17233F]">
                   {mode === 'login'
                     ? 'Welcome back'
@@ -251,19 +280,16 @@ export default function AuthPage() {
                     ? 'Sign in to access your SupportFlow AI workspace and continue managing your support operations.'
                     : 'Create your SupportFlow AI account and bring your support operations into one intelligent workspace.'}
                 </p>
-
               </div>
 
               {/* Success */}
               {success && (
                 <div className="mt-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
 
                   <p className="text-sm text-emerald-700">
                     {success}
                   </p>
-
                 </div>
               )}
 
@@ -283,7 +309,6 @@ export default function AuthPage() {
                 {/* Name */}
                 {mode === 'register' && (
                   <div>
-
                     <label
                       htmlFor="auth-name"
                       className="mb-2 block text-sm font-semibold text-[#344054]"
@@ -292,7 +317,6 @@ export default function AuthPage() {
                     </label>
 
                     <div className="relative">
-
                       <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
 
                       <input
@@ -307,15 +331,12 @@ export default function AuthPage() {
                         disabled={loading}
                         className="h-12 w-full rounded-xl border border-[#D0D5DD] bg-white pl-10 pr-4 text-sm text-[#17233F] outline-none transition placeholder:text-[#98A2B3] focus:border-[#0878D9] focus:ring-4 focus:ring-blue-500/10 disabled:bg-slate-50"
                       />
-
                     </div>
-
                   </div>
                 )}
 
                 {/* Email */}
                 <div>
-
                   <label
                     htmlFor="auth-email"
                     className="mb-2 block text-sm font-semibold text-[#344054]"
@@ -324,7 +345,6 @@ export default function AuthPage() {
                   </label>
 
                   <div className="relative">
-
                     <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
 
                     <input
@@ -340,16 +360,12 @@ export default function AuthPage() {
                       disabled={loading}
                       className="h-12 w-full rounded-xl border border-[#D0D5DD] bg-white pl-10 pr-4 text-sm text-[#17233F] outline-none transition placeholder:text-[#98A2B3] focus:border-[#0878D9] focus:ring-4 focus:ring-blue-500/10 disabled:bg-slate-50"
                     />
-
                   </div>
-
                 </div>
 
                 {/* Password */}
                 <div>
-
                   <div className="mb-2 flex items-center justify-between">
-
                     <label
                       htmlFor="auth-password"
                       className="block text-sm font-semibold text-[#344054]"
@@ -365,11 +381,9 @@ export default function AuthPage() {
                         Forgot password?
                       </button>
                     )}
-
                   </div>
 
                   <div className="relative">
-
                     <LockKeyhole className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
 
                     <input
@@ -418,7 +432,6 @@ export default function AuthPage() {
                         <Eye className="h-4 w-4" />
                       )}
                     </button>
-
                   </div>
 
                   {mode === 'register' && (
@@ -426,7 +439,6 @@ export default function AuthPage() {
                       Use at least 8 characters.
                     </p>
                   )}
-
                 </div>
 
                 {/* Submit */}
@@ -453,14 +465,11 @@ export default function AuthPage() {
                     </>
                   )}
                 </button>
-
               </form>
 
               {/* SSO area */}
               <div className="mt-7">
-
                 <div className="flex items-center gap-3">
-
                   <div className="h-px flex-1 bg-[#E4EAF2]" />
 
                   <span className="text-xs font-medium text-[#98A2B3]">
@@ -468,11 +477,9 @@ export default function AuthPage() {
                   </span>
 
                   <div className="h-px flex-1 bg-[#E4EAF2]" />
-
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
-
                   <button
                     type="button"
                     className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D0D5DD] bg-white text-sm font-semibold text-[#344054] transition hover:bg-[#F8FAFC]"
@@ -486,23 +493,20 @@ export default function AuthPage() {
                   >
                     Microsoft
                   </button>
-
                 </div>
-
-                
-
               </div>
 
               {/* Switch login/register */}
               <div className="mt-7 text-center text-sm text-[#667085]">
-
                 {mode === 'login' ? (
                   <>
                     Don't have an account?{' '}
 
                     <button
                       type="button"
-                      onClick={() => switchMode('register')}
+                      onClick={() =>
+                        switchMode('register')
+                      }
                       className="font-semibold text-[#0878D9] hover:text-[#0669BD]"
                     >
                       Sign up
@@ -514,27 +518,25 @@ export default function AuthPage() {
 
                     <button
                       type="button"
-                      onClick={() => switchMode('login')}
+                      onClick={() =>
+                        switchMode('login')
+                      }
                       className="font-semibold text-[#0878D9] hover:text-[#0669BD]"
                     >
                       Sign in
                     </button>
                   </>
                 )}
-
               </div>
 
               {/* Security */}
               <div className="mt-6 flex items-center justify-center gap-2 text-xs text-[#98A2B3]">
-
                 <ShieldCheck className="h-3.5 w-3.5" />
 
                 Secure authentication for your support workspace
-
               </div>
 
             </div>
-
           </section>
 
         </div>
