@@ -49,6 +49,23 @@ const navigationItems = [
   },
 ];
 
+interface ClientProfile {
+  id: string;
+  name: string;
+  email: string;
+  company?: string | null;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface ClientMeResponse {
+  success?: boolean;
+  data?: ClientProfile;
+  customer?: ClientProfile;
+  message?: string;
+}
+
 function getInitials(name: string): string {
   const parts = name
     .trim()
@@ -77,30 +94,205 @@ export function ClientShell() {
     useState(false);
 
   /*
-   * Customer information.
-   * This can later be supplied directly by
-   * /api/client-auth/me.
+   * ---------------------------------------------------------
+   * DYNAMIC CUSTOMER INFORMATION
+   * ---------------------------------------------------------
+   *
+   * The customer name and email are NOT hardcoded.
+   *
+   * We load the currently authenticated customer using:
+   *
+   * GET /api/client-auth/me
+   *
+   * with the customer access token.
    */
-  const clientName =
-    'Netrapal Sorout';
 
-  const clientEmail =
-    'netrapalsorout@gmail.com';
+  const [client, setClient] =
+    useState<ClientProfile | null>(null);
 
-  const initials =
-    getInitials(clientName);
+  const [clientLoading, setClientLoading] =
+    useState(true);
+
+  const [clientError, setClientError] =
+    useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadClientProfile() {
+      const token = localStorage.getItem(
+        CLIENT_ACCESS_TOKEN_KEY,
+      );
+
+      /*
+       * No client token means there is no authenticated
+       * customer session.
+       */
+      if (!token) {
+        if (!cancelled) {
+          setClientLoading(false);
+        }
+
+        return;
+      }
+
+      try {
+        const configuredApiUrl =
+          import.meta.env.VITE_API_URL;
+
+        if (!configuredApiUrl) {
+          throw new Error(
+            'VITE_API_URL is not configured.',
+          );
+        }
+
+        const API_BASE_URL =
+          `${configuredApiUrl.replace(/\/+$/, '')}/api`;
+
+        const response = await fetch(
+          `${API_BASE_URL}/client-auth/me`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json',
+            },
+          },
+        );
+
+        /*
+         * Token is invalid/expired.
+         *
+         * Clear it and return the customer to the
+         * client login page.
+         */
+        if (response.status === 401) {
+          localStorage.removeItem(
+            CLIENT_ACCESS_TOKEN_KEY,
+          );
+
+          if (!cancelled) {
+            setClient(null);
+            setClientLoading(false);
+          }
+
+          navigate('/', {
+            replace: true,
+          });
+
+          return;
+        }
+
+        if (!response.ok) {
+          let message =
+            `Unable to load customer profile (${response.status}).`;
+
+          try {
+            const errorBody =
+              (await response.json()) as {
+                message?: string;
+              };
+
+            if (errorBody.message) {
+              message = errorBody.message;
+            }
+          } catch {
+            /*
+             * Ignore JSON parsing errors and keep the
+             * HTTP status error message.
+             */
+          }
+
+          throw new Error(message);
+        }
+
+        const result =
+          (await response.json()) as ClientMeResponse;
+
+        /*
+         * Your API should normally return:
+         *
+         * {
+         *   success: true,
+         *   data: {
+         *     id,
+         *     name,
+         *     email,
+         *     ...
+         *   }
+         * }
+         *
+         * We also support `customer` as a fallback so
+         * the UI remains compatible if the backend wraps
+         * the customer differently.
+         */
+        const customer =
+          result.data ?? result.customer;
+
+        if (!customer) {
+          throw new Error(
+            'Customer profile was not returned by the server.',
+          );
+        }
+
+        if (!cancelled) {
+          setClient(customer);
+          setClientError('');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setClientError(
+            error instanceof Error
+              ? error.message
+              : 'Unable to load customer profile.',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setClientLoading(false);
+        }
+      }
+    }
+
+    void loadClientProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  /*
+   * ---------------------------------------------------------
+   * DYNAMIC DISPLAY VALUES
+   * ---------------------------------------------------------
+   *
+   * These values now come from the authenticated customer.
+   */
+
+  const clientName = clientLoading
+    ? 'Loading…'
+    : client?.name || 'Customer';
+
+  const clientEmail = clientLoading
+    ? ''
+    : client?.email || '';
+
+  const initials = getInitials(
+    client?.name || 'Customer',
+  );
 
   /*
    * ---------------------------------------------------------
    * SIGN OUT
-   * Existing authentication logic preserved.
    * ---------------------------------------------------------
    */
+
   function handleSignOut() {
     localStorage.removeItem(
       CLIENT_ACCESS_TOKEN_KEY,
     );
 
+    setClient(null);
     setIsMobileMenuOpen(false);
 
     navigate('/', {
@@ -113,6 +305,7 @@ export function ClientShell() {
    * MOBILE MENU
    * ---------------------------------------------------------
    */
+
   function openMobileMenu() {
     setIsMobileMenuOpen(true);
   }
@@ -174,7 +367,6 @@ export function ClientShell() {
 
         </div>
 
-
         {/* ---------------------------------------------------
             DESKTOP NAVIGATION
         --------------------------------------------------- */}
@@ -226,7 +418,6 @@ export function ClientShell() {
 
           </nav>
 
-
           {/* -------------------------------------------------
               CREATE TICKET
           ------------------------------------------------- */}
@@ -234,9 +425,7 @@ export function ClientShell() {
           <button
             type="button"
             onClick={() =>
-              navigate(
-                '/portal/tickets/new',
-              )
+              navigate('/portal/tickets/new')
             }
             className="mt-8 flex h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#0878D9] px-4 text-[13px] font-semibold text-white shadow-[0_5px_16px_rgba(8,120,217,0.20)] transition-colors hover:bg-[#066BC2]"
           >
@@ -246,7 +435,6 @@ export function ClientShell() {
           </button>
 
         </div>
-
 
         {/* ---------------------------------------------------
             DESKTOP CUSTOMER ACCOUNT
@@ -282,6 +470,11 @@ export function ClientShell() {
 
           </div>
 
+          {clientError && (
+            <p className="mb-2 px-1 text-[10px] text-[#D92D20]">
+              Unable to load customer profile.
+            </p>
+          )}
 
           {/* Sign out */}
 
@@ -299,7 +492,6 @@ export function ClientShell() {
 
       </aside>
 
-
       {/* =====================================================
           MOBILE DRAWER BACKDROP
       ===================================================== */}
@@ -311,7 +503,6 @@ export function ClientShell() {
           aria-hidden="true"
         />
       )}
-
 
       {/* =====================================================
           MOBILE NAVIGATION DRAWER
@@ -347,7 +538,6 @@ export function ClientShell() {
 
           </div>
 
-
           <button
             type="button"
             onClick={closeMobileMenu}
@@ -358,7 +548,6 @@ export function ClientShell() {
           </button>
 
         </div>
-
 
         {/* ---------------------------------------------------
             MOBILE NAVIGATION
@@ -426,7 +615,6 @@ export function ClientShell() {
 
           </nav>
 
-
           {/* -------------------------------------------------
               MOBILE CREATE TICKET
           ------------------------------------------------- */}
@@ -436,9 +624,7 @@ export function ClientShell() {
             onClick={() => {
               closeMobileMenu();
 
-              navigate(
-                '/portal/tickets/new',
-              );
+              navigate('/portal/tickets/new');
             }}
             className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0878D9] px-4 text-[12px] font-semibold text-white shadow-[0_5px_16px_rgba(8,120,217,0.18)] transition-colors hover:bg-[#066BC2]"
           >
@@ -448,7 +634,6 @@ export function ClientShell() {
           </button>
 
         </div>
-
 
         {/* ---------------------------------------------------
             MOBILE CUSTOMER ACCOUNT
@@ -480,6 +665,11 @@ export function ClientShell() {
 
           </div>
 
+          {clientError && (
+            <p className="mb-2 px-1 text-[10px] text-[#D92D20]">
+              Unable to load customer profile.
+            </p>
+          )}
 
           <button
             type="button"
@@ -495,13 +685,11 @@ export function ClientShell() {
 
       </aside>
 
-
       {/* =====================================================
           APPLICATION AREA
       ===================================================== */}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-
 
         {/* ===================================================
             MOBILE HEADER
@@ -516,13 +704,10 @@ export function ClientShell() {
               onClick={openMobileMenu}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#DCE5EF] bg-white text-[#475467] transition-colors hover:bg-[#F8FAFC]"
               aria-label="Open navigation"
-              aria-expanded={
-                isMobileMenuOpen
-              }
+              aria-expanded={isMobileMenuOpen}
             >
               <Menu className="h-4 w-4" />
             </button>
-
 
             <div className="min-w-0">
 
@@ -538,7 +723,6 @@ export function ClientShell() {
 
           </div>
 
-
           {/* Mobile account avatar */}
 
           <button
@@ -551,7 +735,6 @@ export function ClientShell() {
           </button>
 
         </header>
-
 
         {/* ===================================================
             MAIN CONTENT
