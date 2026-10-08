@@ -1,8 +1,12 @@
 import { getClientAccessToken } from './client-auth.storage';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  `${import.meta.env.VITE_API_URL}/api`;
+const configuredApiUrl = import.meta.env.VITE_API_URL;
+
+if (!configuredApiUrl) {
+  throw new Error('VITE_API_URL is not configured.');
+}
+
+const API_BASE_URL = `${configuredApiUrl.replace(/\/+$/, '')}/api`;
 
 export type ClientTicketStatus =
   | 'OPEN'
