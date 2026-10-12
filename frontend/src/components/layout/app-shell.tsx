@@ -505,18 +505,8 @@ export function AppShell() {
 
       </aside>
 
-
-      {/* =====================================================
-          APPLICATION AREA
-      ===================================================== */}
-
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-
-
-        {/* ===================================================
-            DESKTOP HEADER
-        =================================================== */}
-
+      <div className="flex
+       flex-col overflow-hidden">
         <header className="hidden h-[76px] shrink-0 items-center justify-between border-b border-[#E1E7EF] bg-white px-5 lg:flex">
 
           <div className="relative w-full max-w-[405px]">

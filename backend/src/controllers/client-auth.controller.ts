@@ -1,3 +1,4 @@
+
 import type {
   NextFunction,
   Request,
@@ -7,6 +8,7 @@ import type {
 import {
   getClientById,
   loginClient,
+  loginClientWithCognito,
   registerClient,
 } from '../services/client-auth.service.js';
 
@@ -31,7 +33,6 @@ export async function registerClientController(
         message: 'Invalid registration data',
         errors: result.error.flatten(),
       });
-
       return;
     }
 
@@ -52,7 +53,9 @@ export async function loginClientController(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const result = clientLoginSchema.safeParse(req.body);
+    const result = clientLoginSchema.safeParse(
+      req.body,
+    );
 
     if (!result.success) {
       res.status(400).json({
@@ -60,7 +63,6 @@ export async function loginClientController(
         message: 'Invalid login data',
         errors: result.error.flatten(),
       });
-
       return;
     }
 
@@ -69,6 +71,43 @@ export async function loginClientController(
     res.status(200).json({
       success: true,
       data: resultData,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Exchange a verified Cognito ID token for a
+ * SupportFlow AI customer session.
+ */
+export async function clientCognitoSsoController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const idToken = req.body?.idToken;
+
+    if (
+      typeof idToken !== 'string' ||
+      idToken.trim().length === 0
+    ) {
+      res.status(400).json({
+        success: false,
+        message: 'Cognito ID token is required',
+      });
+      return;
+    }
+
+    const result = await loginClientWithCognito(
+      idToken,
+    );
+
+    res.status(200).json({
+      success: true,
+      token: result.token,
+      customer: result.customer,
     });
   } catch (error) {
     next(error);
@@ -86,18 +125,18 @@ export async function getClientMeController(
         success: false,
         message: 'Customer authentication required',
       });
-
       return;
     }
 
-    const customer = await getClientById(req.client.id);
+    const customer = await getClientById(
+      req.client.id,
+    );
 
     if (!customer) {
       res.status(404).json({
         success: false,
         message: 'Customer not found',
       });
-
       return;
     }
 
