@@ -1,4 +1,3 @@
-
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
@@ -69,7 +68,7 @@ function createClientJwt(customerId: string): string {
 }
 
 /**
- * Return the customer fields exposed to the client.
+ * Return only customer fields exposed to the client.
  */
 function toClientResponse(customer: {
   id: string;
@@ -124,7 +123,6 @@ export async function registerClient(
 
 /**
  * Log in a customer using SupportFlow email/password credentials.
- * This does not authenticate Google passwords.
  */
 export async function loginClient(
   data: ClientLoginInput,
@@ -162,33 +160,37 @@ export async function loginClient(
 }
 
 /**
- * Authenticate a customer through Google using a Cognito ID token.
+ * Authenticate a customer through a Cognito identity provider.
  *
- * Flow:
- * 1. Google handles account selection and any required password prompt.
- * 2. Cognito returns an authorization result to the frontend.
- * 3. The backend verifies the Cognito ID token.
- * 4. The backend requires a verified email.
- * 5. The backend finds or creates the customer.
- * 6. The backend issues the SupportFlow application JWT.
+ * The Cognito ID token must be verified before any claims are trusted.
  */
 export async function loginClientWithCognito(
   idToken: string,
 ) {
-  if (typeof idToken !== 'string' || !idToken.trim()) {
+  if (
+    typeof idToken !== 'string' ||
+    idToken.trim().length === 0
+  ) {
     throw new Error('A Cognito ID token is required');
   }
 
   const verifier = getCognitoVerifier();
 
-  // Validates the Cognito token signature, issuer, expiry,
-  // token use and configured app client.
+  // Validates token signature, issuer, expiry, token use,
+  // and configured Cognito app client.
   const payload = await verifier.verify(idToken);
 
+  // Preserve the claim's type until runtime validation succeeds.
+  const emailClaim = payload.email;
+
+  const hasEmail =
+    typeof emailClaim === 'string' &&
+    emailClaim.trim().length > 0;
+
+  // Never log the ID token or the user's email.
   console.info(
     '[Cognito SSO] Email claim present:',
-    typeof payload.email === 'string' &&
-      payload.email.trim().length > 0,
+    hasEmail,
   );
 
   console.info(
@@ -196,37 +198,46 @@ export async function loginClientWithCognito(
     payload.email_verified,
   );
 
-  if (
-    typeof payload.email !== 'string' ||
-    payload.email.trim().length === 0
-  ) {
+  if (!hasEmail) {
     throw new Error(
-      'Cognito ID token has no email claim. Check the Google email scope and Cognito attribute mapping.',
+      'Cognito ID token has no email claim. Check the identity provider scopes and Cognito attribute mapping.',
     );
   }
 
   if (payload.email_verified !== true) {
     throw new Error(
-      'Google sign-in was received, but Cognito did not confirm a verified email. Check the identity-provider configuration.',
+      'Cognito ID token email is not verified. Check the identity provider configuration.',
     );
   }
 
-  const email = payload.email.trim().toLowerCase();
+  // emailClaim is narrowed to string by the validation above.
+  const email = emailClaim.trim().toLowerCase();
 
-  let customer = await findCustomerByEmail(email);
+  // Find an existing customer by verified email.
+  const existingCustomer = await findCustomerByEmail(email);
 
-  if (!customer) {
-    const name =
-      typeof payload.name === 'string' &&
-      payload.name.trim().length > 0
-        ? payload.name.trim()
-        : email.split('@')[0] || 'Google Customer';
+  if (existingCustomer) {
+    if (existingCustomer.status !== 'ACTIVE') {
+      throw new Error('Customer account is inactive');
+    }
 
-    customer = await createCustomer({
-      name,
-      email,
-    });
+    return {
+      token: createClientJwt(existingCustomer.id),
+      customer: toClientResponse(existingCustomer),
+    };
   }
+
+  // Only create a customer after the email claim has been validated.
+  const name =
+    typeof payload.name === 'string' &&
+    payload.name.trim().length > 0
+      ? payload.name.trim()
+      : email.split('@')[0] || 'Customer';
+
+  const customer = await createCustomer({
+    name,
+    email,
+  });
 
   if (customer.status !== 'ACTIVE') {
     throw new Error('Customer account is inactive');

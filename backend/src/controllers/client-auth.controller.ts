@@ -1,4 +1,3 @@
-
 import type {
   NextFunction,
   Request,
@@ -95,7 +94,8 @@ export async function clientCognitoSsoController(
     ) {
       res.status(400).json({
         success: false,
-        message: 'Cognito ID token is required',
+        code: 'COGNITO_ID_TOKEN_REQUIRED',
+        message: 'Cognito ID token is required.',
       });
       return;
     }
@@ -110,6 +110,22 @@ export async function clientCognitoSsoController(
       customer: result.customer,
     });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes(
+        'Cognito ID token has no email claim',
+      )
+    ) {
+      res.status(422).json({
+        success: false,
+        code: 'EMAIL_CLAIM_MISSING',
+        message:
+          'Your Microsoft sign-in did not provide an email address. ' +
+          'Check your Microsoft account details or contact support.',
+      });
+      return;
+    }
+
     next(error);
   }
 }
