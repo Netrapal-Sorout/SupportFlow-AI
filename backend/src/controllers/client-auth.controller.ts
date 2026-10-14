@@ -5,6 +5,7 @@ import type {
 } from 'express';
 
 import {
+  CognitoSsoError,
   getClientById,
   loginClient,
   loginClientWithCognito,
@@ -94,7 +95,7 @@ export async function clientCognitoSsoController(
     ) {
       res.status(400).json({
         success: false,
-        code: 'COGNITO_ID_TOKEN_REQUIRED',
+        code: 'COGNITO_TOKEN_REQUIRED',
         message: 'Cognito ID token is required.',
       });
       return;
@@ -106,26 +107,24 @@ export async function clientCognitoSsoController(
 
     res.status(200).json({
       success: true,
-      token: result.token,
-      customer: result.customer,
+      data: {
+        token: result.token,
+        customer: result.customer,
+      },
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes(
-        'Cognito ID token has no email claim',
-      )
-    ) {
-      res.status(422).json({
+    if (error instanceof CognitoSsoError) {
+      res.status(error.statusCode).json({
         success: false,
-        code: 'EMAIL_CLAIM_MISSING',
-        message:
-          'Your Microsoft sign-in did not provide an email address. ' +
-          'Check your Microsoft account details or contact support.',
+        code: error.code,
+        message: error.message,
       });
       return;
     }
 
+    // Invalid signatures, issuer mismatches, expired tokens,
+    // database failures, and unexpected errors go to the
+    // application's centralized error handler.
     next(error);
   }
 }

@@ -13,6 +13,29 @@ import type {
   ClientRegisterInput,
 } from '../schemas/client-auth.schema.js';
 
+export type CognitoSsoErrorCode =
+  | 'COGNITO_TOKEN_REQUIRED'
+  | 'COGNITO_CONFIGURATION_MISSING'
+  | 'EMAIL_CLAIM_MISSING'
+  | 'EMAIL_NOT_VERIFIED'
+  | 'CUSTOMER_INACTIVE';
+
+export class CognitoSsoError extends Error {
+  public readonly code: CognitoSsoErrorCode;
+  public readonly statusCode: number;
+
+  constructor(
+    code: CognitoSsoErrorCode,
+    message: string,
+    statusCode: number,
+  ) {
+    super(message);
+    this.name = 'CognitoSsoError';
+    this.code = code;
+    this.statusCode = statusCode;
+  }
+}
+
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
 
@@ -23,9 +46,6 @@ function getJwtSecret(): string {
   return secret;
 }
 
-/**
- * Lazily create the Cognito ID-token verifier.
- */
 let cognitoVerifier:
   | ReturnType<typeof CognitoJwtVerifier.create>
   | null = null;
@@ -35,8 +55,10 @@ function getCognitoVerifier() {
   const clientId = process.env.COGNITO_CLIENT_ID;
 
   if (!userPoolId || !clientId) {
-    throw new Error(
-      'Cognito configuration is missing. Check COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID.',
+    throw new CognitoSsoError(
+      'COGNITO_CONFIGURATION_MISSING',
+      'Cognito configuration is missing.',
+      500,
     );
   }
 
@@ -51,9 +73,6 @@ function getCognitoVerifier() {
   return cognitoVerifier;
 }
 
-/**
- * Create the SupportFlow application JWT.
- */
 function createClientJwt(customerId: string): string {
   return jwt.sign(
     {
@@ -67,9 +86,6 @@ function createClientJwt(customerId: string): string {
   );
 }
 
-/**
- * Return only customer fields exposed to the client.
- */
 function toClientResponse(customer: {
   id: string;
   name: string;
@@ -86,9 +102,6 @@ function toClientResponse(customer: {
   };
 }
 
-/**
- * Register a customer with email and password.
- */
 export async function registerClient(
   data: ClientRegisterInput,
 ) {
@@ -121,9 +134,6 @@ export async function registerClient(
   };
 }
 
-/**
- * Log in a customer using SupportFlow email/password credentials.
- */
 export async function loginClient(
   data: ClientLoginInput,
 ) {
@@ -160,9 +170,10 @@ export async function loginClient(
 }
 
 /**
- * Authenticate a customer through a Cognito identity provider.
+ * Authenticate a customer through Cognito.
  *
- * The Cognito ID token must be verified before any claims are trusted.
+ * Only a verified email claim from a successfully verified
+ * Cognito ID token may be used for customer lookup or creation.
  */
 export async function loginClientWithCognito(
   idToken: string,
@@ -171,54 +182,60 @@ export async function loginClientWithCognito(
     typeof idToken !== 'string' ||
     idToken.trim().length === 0
   ) {
-    throw new Error('A Cognito ID token is required');
+    throw new CognitoSsoError(
+      'COGNITO_TOKEN_REQUIRED',
+      'A Cognito ID token is required.',
+      400,
+    );
   }
 
+  // Invalid signatures, issuers, expiry, token use, or client IDs
+  // must cause authentication to fail. Never bypass this verifier.
   const verifier = getCognitoVerifier();
-
-  // Validates token signature, issuer, expiry, token use,
-  // and configured Cognito app client.
   const payload = await verifier.verify(idToken);
 
-  // Preserve the claim's type until runtime validation succeeds.
   const emailClaim = payload.email;
 
   const hasEmail =
     typeof emailClaim === 'string' &&
     emailClaim.trim().length > 0;
 
-  // Never log the ID token or the user's email.
-  console.info(
-    '[Cognito SSO] Email claim present:',
-    hasEmail,
-  );
-
+  // Log claim presence only. Never log tokens or personal data.
+  console.info('[Cognito SSO] Email claim present:', hasEmail);
   console.info(
     '[Cognito SSO] Email verification claim:',
     payload.email_verified,
   );
 
   if (!hasEmail) {
-    throw new Error(
-      'Cognito ID token has no email claim. Check the identity provider scopes and Cognito attribute mapping.',
+    throw new CognitoSsoError(
+      'EMAIL_CLAIM_MISSING',
+      'Microsoft sign-in did not provide an email address. Use an account that supplies an email or contact support.',
+      422,
     );
   }
 
   if (payload.email_verified !== true) {
-    throw new Error(
-      'Cognito ID token email is not verified. Check the identity provider configuration.',
+    throw new CognitoSsoError(
+      'EMAIL_NOT_VERIFIED',
+      'Your email address must be verified before you can sign in with Microsoft.',
+      403,
     );
   }
 
-  // emailClaim is narrowed to string by the validation above.
   const email = emailClaim.trim().toLowerCase();
 
-  // Find an existing customer by verified email.
+  // Do not look up, link, or create an account before the email
+  // claim has passed verification.
   const existingCustomer = await findCustomerByEmail(email);
 
   if (existingCustomer) {
     if (existingCustomer.status !== 'ACTIVE') {
-      throw new Error('Customer account is inactive');
+      throw new CognitoSsoError(
+        'CUSTOMER_INACTIVE',
+        'Your customer account is inactive. Contact support.',
+        403,
+      );
     }
 
     return {
@@ -227,7 +244,6 @@ export async function loginClientWithCognito(
     };
   }
 
-  // Only create a customer after the email claim has been validated.
   const name =
     typeof payload.name === 'string' &&
     payload.name.trim().length > 0
@@ -240,7 +256,11 @@ export async function loginClientWithCognito(
   });
 
   if (customer.status !== 'ACTIVE') {
-    throw new Error('Customer account is inactive');
+    throw new CognitoSsoError(
+      'CUSTOMER_INACTIVE',
+      'Your customer account is inactive. Contact support.',
+      403,
+    );
   }
 
   return {
@@ -249,9 +269,6 @@ export async function loginClientWithCognito(
   };
 }
 
-/**
- * Retrieve a customer by application customer ID.
- */
 export async function getClientById(id: string) {
   return findCustomerById(id);
 }
