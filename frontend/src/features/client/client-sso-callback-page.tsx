@@ -13,18 +13,29 @@ const COGNITO_CLIENT_ID =
   '7h17a1tprm8kt21bsolgoej9p5';
 
 const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || 'http://localhost:5000'
+  import.meta.env.VITE_API_URL ||
+  'https://d2ndzl99hg0dno.cloudfront.net'
 ).replace(/\/+$/, '');
 
 const STATE_KEY = 'supportflow_cognito_oauth_state';
 const VERIFIER_KEY = 'supportflow_cognito_pkce_verifier';
 
-// Capture the callback URL when this page module loads.
-// This survives React Strict Mode's effect setup/cleanup cycle.
 const CALLBACK_URL_AT_LOAD = window.location.href;
 
-// Reuse an in-flight exchange for the same authorization code.
+// Reuse the same exchange when React Strict Mode runs an effect twice.
 const pendingExchanges = new Map<string, Promise<string>>();
+
+interface CognitoTokenResponse {
+  id_token?: string;
+  error?: string;
+  error_description?: string;
+}
+
+interface SupportFlowAuthResponse {
+  token?: string;
+  message?: string;
+  error?: string;
+}
 
 async function exchangeForSupportFlowToken(
   code: string,
@@ -32,7 +43,7 @@ async function exchangeForSupportFlowToken(
 ): Promise<string> {
   const redirectUri = `${window.location.origin}/auth/callback`;
 
-  // 1. Exchange the Cognito authorization code using PKCE.
+  // Exchange the authorization code for Cognito tokens using PKCE.
   const tokenResponse = await fetch(
     `${COGNITO_DOMAIN}/oauth2/token`,
     {
@@ -50,7 +61,8 @@ async function exchangeForSupportFlowToken(
     },
   );
 
-  const tokenData = await tokenResponse.json().catch(() => ({}));
+  const tokenData: CognitoTokenResponse =
+    await tokenResponse.json().catch(() => ({}));
 
   if (
     !tokenResponse.ok ||
@@ -64,7 +76,7 @@ async function exchangeForSupportFlowToken(
     );
   }
 
-  // 2. Exchange the Cognito ID token for the SupportFlow API JWT.
+  // Exchange the Cognito ID token for the SupportFlow API JWT.
   const backendResponse = await fetch(
     `${API_BASE_URL}/api/client-auth/sso/cognito`,
     {
@@ -78,7 +90,8 @@ async function exchangeForSupportFlowToken(
     },
   );
 
-  const backendData = await backendResponse.json().catch(() => ({}));
+  const backendData: SupportFlowAuthResponse =
+    await backendResponse.json().catch(() => ({}));
 
   if (!backendResponse.ok) {
     throw new Error(
@@ -100,30 +113,40 @@ async function exchangeForSupportFlowToken(
   return backendData.token;
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Sign-in failed. Please return to the sign-in page and try again.';
+}
+
 export default function ClientSsoCallbackPage() {
   const navigate = useNavigate();
 
   const [message, setMessage] = useState(
-    'Completing Google sign-in...',
+    'Completing sign-in...',
   );
+
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function completeSignIn() {
+      let stateValidated = false;
+
       try {
         const callbackUrl = new URL(CALLBACK_URL_AT_LOAD);
         const params = callbackUrl.searchParams;
 
         const code = params.get('code');
+        const returnedState = params.get('state');
         const oauthError =
           params.get('error_description') ||
           params.get('error');
-        const returnedState = params.get('state');
 
-        // Remove query parameters from the visible URL.
-        // CALLBACK_URL_AT_LOAD retains the original values for Strict Mode.
+        // Remove authorization parameters from the visible URL.
         window.history.replaceState(
           {},
           document.title,
@@ -131,21 +154,18 @@ export default function ClientSsoCallbackPage() {
         );
 
         if (oauthError) {
-          throw new Error(
-            oauthError.replace(/\+/g, ' '),
-          );
+          throw new Error(oauthError);
         }
 
         if (!code) {
           throw new Error(
-            'No authorization code was returned. Check the Cognito callback URL and try Google sign-in again.',
+            'No authorization code was returned. Start a new sign-in attempt.',
           );
         }
 
+        // Validate OAuth state before exchanging the code.
         const expectedState =
           sessionStorage.getItem(STATE_KEY);
-        const verifier =
-          sessionStorage.getItem(VERIFIER_KEY);
 
         if (
           !returnedState ||
@@ -153,30 +173,36 @@ export default function ClientSsoCallbackPage() {
           returnedState !== expectedState
         ) {
           throw new Error(
-            'The sign-in security check failed. Return to sign-in and start a new Google sign-in attempt.',
+            'The sign-in security check failed. Please return to sign-in and start a new authentication attempt.',
           );
         }
 
+        stateValidated = true;
+
+        const verifier =
+          sessionStorage.getItem(VERIFIER_KEY);
+
         if (!verifier) {
           throw new Error(
-            'The PKCE verifier is missing. Return to sign-in and try again.',
+            'The PKCE verifier is missing. Please start a new sign-in attempt.',
           );
         }
 
         if (!COGNITO_DOMAIN || !COGNITO_CLIENT_ID) {
           throw new Error(
-            'Cognito configuration is missing. Check frontend/.env.local.',
+            'Cognito configuration is missing. Check your frontend environment variables.',
           );
         }
 
         if (!API_BASE_URL) {
           throw new Error(
-            'VITE_API_URL is missing. Set it in frontend/.env.local and restart Vite.',
+            'The API URL is missing. Check VITE_API_URL.',
           );
         }
 
-        // Do not remove state/verifier until the exchange finishes.
-        // The second Strict Mode effect needs to read the same values.
+        setMessage('Verifying your account...');
+
+        // Reuse an exchange already started for this code.
         let exchange = pendingExchanges.get(code);
 
         if (!exchange) {
@@ -187,14 +213,20 @@ export default function ClientSsoCallbackPage() {
 
           pendingExchanges.set(code, exchange);
 
+          const currentExchange = exchange;
+
           void exchange.then(
             () => {
-              if (pendingExchanges.get(code) === exchange) {
+              if (
+                pendingExchanges.get(code) === currentExchange
+              ) {
                 pendingExchanges.delete(code);
               }
             },
             () => {
-              if (pendingExchanges.get(code) === exchange) {
+              if (
+                pendingExchanges.get(code) === currentExchange
+              ) {
                 pendingExchanges.delete(code);
               }
             },
@@ -203,7 +235,9 @@ export default function ClientSsoCallbackPage() {
 
         const supportFlowToken = await exchange;
 
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         // Store the backend JWT, not the Cognito ID token.
         setClientAccessToken(supportFlowToken);
@@ -211,18 +245,22 @@ export default function ClientSsoCallbackPage() {
         sessionStorage.removeItem(STATE_KEY);
         sessionStorage.removeItem(VERIFIER_KEY);
 
+        setMessage('Sign-in successful. Opening your portal...');
+
         navigate('/portal', { replace: true });
       } catch (error: unknown) {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
-        sessionStorage.removeItem(STATE_KEY);
-        sessionStorage.removeItem(VERIFIER_KEY);
+        // Only clear credentials after a state-validated attempt.
+        // An invalid state must not destroy another pending attempt.
+        if (stateValidated) {
+          sessionStorage.removeItem(STATE_KEY);
+          sessionStorage.removeItem(VERIFIER_KEY);
+        }
 
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : 'Google sign-in failed. Please try again.',
-        );
+        setMessage(getErrorMessage(error));
         setFailed(true);
       }
     }
