@@ -170,10 +170,10 @@ export async function loginClient(
 }
 
 /**
- * Authenticate a customer through Cognito.
+ * Authenticate a customer using a verified Cognito ID token.
  *
- * Only a verified email claim from a successfully verified
- * Cognito ID token may be used for customer lookup or creation.
+ * Never use an unverified email for account lookup, linking,
+ * or customer creation.
  */
 export async function loginClientWithCognito(
   idToken: string,
@@ -189,8 +189,8 @@ export async function loginClientWithCognito(
     );
   }
 
-  // Invalid signatures, issuers, expiry, token use, or client IDs
-  // must cause authentication to fail. Never bypass this verifier.
+  // Verify signature, issuer, expiration, token use, and client ID.
+  // Never bypass verification if it fails.
   const verifier = getCognitoVerifier();
   const payload = await verifier.verify(idToken);
 
@@ -200,12 +200,12 @@ export async function loginClientWithCognito(
     typeof emailClaim === 'string' &&
     emailClaim.trim().length > 0;
 
-  // Log claim presence only. Never log tokens or personal data.
-  console.info('[Cognito SSO] Email claim present:', hasEmail);
-  console.info(
-    '[Cognito SSO] Email verification claim:',
-    payload.email_verified,
-  );
+  // Safe diagnostics: do not log tokens or personal information.
+  console.info('[Cognito SSO] Diagnostic:', {
+    emailClaimPresent: hasEmail,
+    emailVerified: payload.email_verified,
+    issuer: payload.iss,
+  });
 
   if (!hasEmail) {
     throw new CognitoSsoError(
@@ -225,8 +225,7 @@ export async function loginClientWithCognito(
 
   const email = emailClaim.trim().toLowerCase();
 
-  // Do not look up, link, or create an account before the email
-  // claim has passed verification.
+  // Only perform customer lookup after token and email verification.
   const existingCustomer = await findCustomerByEmail(email);
 
   if (existingCustomer) {
