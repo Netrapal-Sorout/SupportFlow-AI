@@ -22,7 +22,7 @@ const VERIFIER_KEY = 'supportflow_cognito_pkce_verifier';
 
 const CALLBACK_URL_AT_LOAD = window.location.href;
 
-// Prevent duplicate authorization-code exchanges in React Strict Mode.
+// Reuse the same exchange when React Strict Mode runs an effect twice.
 const pendingExchanges = new Map<string, Promise<string>>();
 
 interface CognitoTokenResponse {
@@ -32,18 +32,7 @@ interface CognitoTokenResponse {
 }
 
 interface SupportFlowAuthResponse {
-  success?: boolean;
   token?: string;
-  data?: {
-    token?: string;
-    customer?: {
-      id?: string;
-      name?: string;
-      email?: string;
-      company?: string | null;
-      status?: string;
-    };
-  };
   message?: string;
   error?: string;
 }
@@ -87,7 +76,7 @@ async function exchangeForSupportFlowToken(
     );
   }
 
-  // Exchange the Cognito ID token for the SupportFlow backend JWT.
+  // Exchange the Cognito ID token for the SupportFlow API JWT.
   const backendResponse = await fetch(
     `${API_BASE_URL}/api/client-auth/sso/cognito`,
     {
@@ -112,22 +101,16 @@ async function exchangeForSupportFlowToken(
     );
   }
 
-  // The backend response can be:
-  // { success: true, data: { token: "...", customer: {...} } }
-  // Also support the older format: { token: "..." }.
-  const supportFlowToken =
-    backendData.data?.token ?? backendData.token;
-
   if (
-    typeof supportFlowToken !== 'string' ||
-    !supportFlowToken.trim()
+    typeof backendData.token !== 'string' ||
+    !backendData.token
   ) {
     throw new Error(
-      'The backend response did not contain a SupportFlow token. Check the SSO controller response.',
+      'The backend did not return a SupportFlow token. Check the SSO controller response.',
     );
   }
 
-  return supportFlowToken;
+  return backendData.token;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -141,7 +124,10 @@ function getErrorMessage(error: unknown): string {
 export default function ClientSsoCallbackPage() {
   const navigate = useNavigate();
 
-  const [message, setMessage] = useState('Completing sign-in...');
+  const [message, setMessage] = useState(
+    'Completing sign-in...',
+  );
+
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -160,7 +146,7 @@ export default function ClientSsoCallbackPage() {
           params.get('error_description') ||
           params.get('error');
 
-        // Remove OAuth parameters from the address bar.
+        // Remove authorization parameters from the visible URL.
         window.history.replaceState(
           {},
           document.title,
@@ -178,7 +164,8 @@ export default function ClientSsoCallbackPage() {
         }
 
         // Validate OAuth state before exchanging the code.
-        const expectedState = sessionStorage.getItem(STATE_KEY);
+        const expectedState =
+          sessionStorage.getItem(STATE_KEY);
 
         if (
           !returnedState ||
@@ -192,7 +179,8 @@ export default function ClientSsoCallbackPage() {
 
         stateValidated = true;
 
-        const verifier = sessionStorage.getItem(VERIFIER_KEY);
+        const verifier =
+          sessionStorage.getItem(VERIFIER_KEY);
 
         if (!verifier) {
           throw new Error(
@@ -214,23 +202,31 @@ export default function ClientSsoCallbackPage() {
 
         setMessage('Verifying your account...');
 
-        // Reuse an exchange if Strict Mode starts the effect twice.
+        // Reuse an exchange already started for this code.
         let exchange = pendingExchanges.get(code);
 
         if (!exchange) {
-          exchange = exchangeForSupportFlowToken(code, verifier);
+          exchange = exchangeForSupportFlowToken(
+            code,
+            verifier,
+          );
+
           pendingExchanges.set(code, exchange);
 
           const currentExchange = exchange;
 
           void exchange.then(
             () => {
-              if (pendingExchanges.get(code) === currentExchange) {
+              if (
+                pendingExchanges.get(code) === currentExchange
+              ) {
                 pendingExchanges.delete(code);
               }
             },
             () => {
-              if (pendingExchanges.get(code) === currentExchange) {
+              if (
+                pendingExchanges.get(code) === currentExchange
+              ) {
                 pendingExchanges.delete(code);
               }
             },
@@ -243,7 +239,7 @@ export default function ClientSsoCallbackPage() {
           return;
         }
 
-        // Store the SupportFlow JWT, not the Cognito ID token.
+        // Store the backend JWT, not the Cognito ID token.
         setClientAccessToken(supportFlowToken);
 
         sessionStorage.removeItem(STATE_KEY);
@@ -257,7 +253,8 @@ export default function ClientSsoCallbackPage() {
           return;
         }
 
-        // Clear only the credentials belonging to a state-validated attempt.
+        // Only clear credentials after a state-validated attempt.
+        // An invalid state must not destroy another pending attempt.
         if (stateValidated) {
           sessionStorage.removeItem(STATE_KEY);
           sessionStorage.removeItem(VERIFIER_KEY);
