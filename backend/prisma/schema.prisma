@@ -103,16 +103,17 @@ model Workspace {
 }
 
 model Customer {
-  id           String         @id @default(uuid())
-  name         String
-  email        String         @unique
-  passwordHash String?
-  company      String?
-  status       CustomerStatus @default(ACTIVE)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  tickets Ticket[]
+  id              String         @id @default(uuid())
+  name            String
+  email           String         @unique
+  passwordHash    String?
+  company         String?
+  status          CustomerStatus @default(ACTIVE)
+  cognitoSub      String?        @unique
+  emailVerifiedAt DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  tickets         Ticket[]
 
   @@map("customers")
 }

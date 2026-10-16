@@ -1,9 +1,8 @@
+
 import { prisma } from '../config/database.js';
 import type { Prisma } from '@prisma/client';
 
-type CustomerStatus =
-  | 'ACTIVE'
-  | 'INACTIVE';
+type CustomerStatus = 'ACTIVE' | 'INACTIVE';
 
 interface CreateCustomerData {
   name: string;
@@ -11,6 +10,8 @@ interface CreateCustomerData {
   passwordHash?: string | undefined;
   company?: string | undefined;
   status?: CustomerStatus | undefined;
+  cognitoSub?: string | undefined;
+  emailVerifiedAt?: Date | undefined;
 }
 
 interface UpdateCustomerData {
@@ -20,50 +21,32 @@ interface UpdateCustomerData {
   status?: CustomerStatus | undefined;
 }
 
-/**
- * Find a customer by email.
- *
- * Used by:
- * - Customer login
- * - Customer registration
- * - Customer account validation
- */
-export async function findCustomerByEmail(
-  email: string,
-) {
+export async function findCustomerByEmail(email: string) {
   return prisma.customer.findUnique({
-    where: {
-      email,
-    },
+    where: { email: email.trim().toLowerCase() },
+  });
+}
+
+export async function findCustomerById(id: string) {
+  return prisma.customer.findUnique({
+    where: { id },
   });
 }
 
 /**
- * Find a customer by ID.
+ * Find a customer by the stable Cognito subject.
+ * This is used only after the Cognito ID token is verified.
  */
-export async function findCustomerById(
-  id: string,
+export async function findCustomerByCognitoSub(
+  cognitoSub: string,
 ) {
   return prisma.customer.findUnique({
-    where: {
-      id,
-    },
+    where: { cognitoSub },
   });
 }
 
-/**
- * Get all customers.
- *
- * Optional search:
- * - name
- * - email
- * - company
- */
-export async function findAllCustomers(
-  search?: string,
-) {
+export async function findAllCustomers(search?: string) {
   const trimmedSearch = search?.trim();
-
   const where: Prisma.CustomerWhereInput = {};
 
   if (trimmedSearch) {
@@ -91,76 +74,35 @@ export async function findAllCustomers(
 
   return prisma.customer.findMany({
     where,
-
-    orderBy: {
-      createdAt: 'desc',
-    },
+    orderBy: { createdAt: 'desc' },
   });
 }
 
-/**
- * Create a customer.
- *
- * passwordHash is optional because customers
- * created from the admin dashboard may not
- * have portal authentication enabled yet.
- */
-export async function createCustomer(
-  data: CreateCustomerData,
-) {
+export async function createCustomer(data: CreateCustomerData) {
   return prisma.customer.create({
     data: {
       name: data.name,
       email: data.email,
-
-      passwordHash:
-        data.passwordHash ?? null,
-
-      company:
-        data.company ?? null,
-
-      status:
-        data.status ?? 'ACTIVE',
+      passwordHash: data.passwordHash ?? null,
+      company: data.company ?? null,
+      status: data.status ?? 'ACTIVE',
+      cognitoSub: data.cognitoSub ?? null,
+      emailVerifiedAt: data.emailVerifiedAt ?? null,
     },
   });
 }
 
-/**
- * Update a customer.
- */
 export async function updateCustomer(
   id: string,
   data: UpdateCustomerData,
 ) {
   return prisma.customer.update({
-    where: {
-      id,
-    },
-
+    where: { id },
     data: {
-      ...(data.name !== undefined
-        ? {
-            name: data.name,
-          }
-        : {}),
-
-      ...(data.email !== undefined
-        ? {
-            email: data.email,
-          }
-        : {}),
-
-      ...(data.company !== undefined
-        ? {
-            company: data.company,
-          }
-        : {}),
-
-      ...(data.status !== undefined
-        ? {
-            status: data.status,
-          }
-        : {}),
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.email !== undefined && { email: data.email }),
+      ...(data.company !== undefined && { company: data.company }),
+      ...(data.status !== undefined && { status: data.status }),
     },
   });
 }
